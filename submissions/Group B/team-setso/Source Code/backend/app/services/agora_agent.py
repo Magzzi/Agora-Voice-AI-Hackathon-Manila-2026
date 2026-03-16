@@ -68,7 +68,7 @@ def _llm_config(style: str) -> dict:
             {"role": "system", "content": SYSTEM_PROMPTS.get(style, SYSTEM_PROMPTS["standard"])}
         ],
         "greeting_message": (
-            "Hello! I'm YAMI, your AI thesis panelist. Please introduce your research "
+            "Hello! I'm YA-MI, your AI thesis panelist. Please introduce your research "
             "and I'll begin my assessment."
         ),
         "failure_message": "I apologize, I encountered a difficulty. Please continue.",

@@ -16,10 +16,10 @@ class Settings(BaseSettings):
     AZURE_SPEECH_REGION: str = "southeastasia"
     AZURE_SPEECH_ENDPOINT: str = "https://southeastasia.api.cognitive.microsoft.com/"
 
-    # ─── LLM (Groq / OpenAI-compatible) ──────────────────────────────────────
-    LLM_BASE_URL: str = "https://api.groq.com/openai/v1/chat/completions"
-    LLM_API_KEY: str = ""
-    LLM_MODEL: str = "llama3-70b-8192"
+    # ─── LLM (Zenmux / OpenAI-compatible) ────────────────────────────────────
+    LLM_BASE_URL: str = "https://zenmux.ai/api/v1/chat/completions"
+    LLM_API_KEY: str = "sk-ai-v1-ab6497d0e0ecb151d83729fd5c327d7dcb1d268617487d8ee336f71c3e48d211"
+    LLM_MODEL: str = "stepfun/step-3.5-flash-free"
 
     # ─── AWS Bedrock (optional — used if LLM_PROVIDER=bedrock) ───────────────
     LLM_PROVIDER: str = "groq"     # "groq" | "bedrock" | "zenmux"

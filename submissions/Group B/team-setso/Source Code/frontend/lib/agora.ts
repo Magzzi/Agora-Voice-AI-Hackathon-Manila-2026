@@ -11,6 +11,7 @@ let client: IAgoraRTCClient | null = null;
 let micTrack: IMicrophoneAudioTrack | null = null;
 let clientPromise: Promise<IAgoraRTCClient> | null = null;
 let joinPromise: Promise<number> | null = null;
+let listenersAttached = false;
 
 // ─── Conversation transcript ──────────────────────────────────────────────────
 
@@ -38,29 +39,44 @@ export function getTranscript(): TranscriptEntry[] {
 function pushEntry(entry: TranscriptEntry) {
   transcript.push(entry);
   console.log(
-    `[${entry.timestamp.toLocaleTimeString()}] ${entry.role === "user" ? "🧑 You" : "🤖 YAMI"}: ${entry.text}`
+    `[${entry.timestamp.toLocaleTimeString()}] ${
+      entry.role === "user" ? "🧑 You" : "🤖 YAMI"
+    }: ${entry.text}`
   );
   onTranscriptUpdate?.([...transcript]);
 }
 
-// ─── Agora stream-message payload types ──────────────────────────────────────
+// ─── Turn management ──────────────────────────────────────────────────────────
 
 /**
- * Agora Conversational AI sends JSON data-stream messages with this shape.
- * https://docs.agora.io/en/conversational-ai/develop/receive-message
+ * Tracks who is currently speaking so neither side interrupts the other.
+ * null  = nobody speaking, either may start
+ * "user"  = user's STT turn in progress
+ * "agent" = agent's TTS turn in progress
  */
+let currentSpeaker: "user" | "agent" | null = null;
+
+/**
+ * turn_status values sent by Agora Conversational AI:
+ *   0 = in progress
+ *   1 = complete (normal end)
+ *   2 = interrupted
+ */
+type TurnStatus = 0 | 1 | 2;
+
+// ─── Agora stream-message payload types ──────────────────────────────────────
+
 interface AgoraTranscriptMessage {
   message_id: string;
   /** 1 = final, 0 = interim */
   final: 0 | 1;
-  /** 1 = user (STT), 2 = agent (LLM reply) */
+  /** 1 = user (STT), 2 = agent (LLM/TTS reply) */
   message_type: 1 | 2;
   text: string;
-  /** Agent UID — "0" in our setup */
   uid: string;
   turn_id: number;
   turn_seq_id: number;
-  turn_status: number;
+  turn_status: TurnStatus;
   lang: string;
   words: unknown[];
 }
@@ -79,7 +95,7 @@ export async function getClient(): Promise<IAgoraRTCClient> {
     clientPromise = (async () => {
       const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
       client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-      _attachTranscriptListeners(client);
+      _attachListeners(client);
       return client;
     })();
   }
@@ -87,21 +103,54 @@ export async function getClient(): Promise<IAgoraRTCClient> {
   return clientPromise;
 }
 
-/** Wire up stream-message listeners to capture the conversation. */
-function _attachTranscriptListeners(c: IAgoraRTCClient) {
+/** Wire up audio subscription and stream-message listeners. */
+function _attachListeners(c: IAgoraRTCClient) {
+  if (listenersAttached) return;
+  listenersAttached = true;
+
+  // ─── Subscribe to agent audio ─────────────────────────────────────────────
+  c.on("user-published", async (remoteUser, mediaType) => {
+    if (mediaType === "audio") {
+      await c.subscribe(remoteUser, "audio");
+      remoteUser.audioTrack?.play();
+    }
+  });
+
+  // ─── Transcript + turn management ────────────────────────────────────────
   c.on("stream-message", (_uid: number, raw: Uint8Array) => {
     try {
       const json = new TextDecoder().decode(raw);
       const msg: AgoraTranscriptMessage = JSON.parse(json);
 
-      // Only process final transcripts (skip interim/partial)
+      const role: "user" | "agent" = msg.message_type === 1 ? "user" : "agent";
+      const otherRole: "user" | "agent" = role === "user" ? "agent" : "user";
+
+      // ── Drop interim transcripts ─────────────────────────────────────────
       if (msg.final !== 1) return;
 
-      // message_type 1 = user STT, 2 = agent reply
-      if (msg.message_type === 1) {
-        pushEntry({ role: "user", text: msg.text.trim(), timestamp: new Date() });
-      } else if (msg.message_type === 2) {
-        pushEntry({ role: "agent", text: msg.text.trim(), timestamp: new Date() });
+      // ── Drop messages from the non-current speaker while someone is talking
+      // Exception: turn_status 2 (interrupted) always clears the lock so the
+      // other side can take over cleanly.
+      if (msg.turn_status === 2) {
+        // Interrupted — release the lock immediately regardless of who held it
+        currentSpeaker = null;
+      } else {
+        if (currentSpeaker === otherRole) {
+          // Other side is still mid-turn; discard this message
+          return;
+        }
+        // Claim the turn
+        currentSpeaker = role;
+
+        // Release the lock when this turn is complete
+        if (msg.turn_status === 1) {
+          currentSpeaker = null;
+        }
+      }
+
+      // ── Record the transcript entry ──────────────────────────────────────
+      if (msg.text.trim()) {
+        pushEntry({ role, text: msg.text.trim(), timestamp: new Date() });
       }
     } catch {
       // Not a transcript message — ignore
@@ -155,6 +204,8 @@ export function setMicMuted(muted: boolean): void {
 /** Leave the channel and clean up tracks/client. */
 export async function leaveChannel(): Promise<void> {
   joinPromise = null;
+  listenersAttached = false;
+  currentSpeaker = null;
 
   const c = await getClient();
 
@@ -170,5 +221,5 @@ export async function leaveChannel(): Promise<void> {
 
   client = null;
   clientPromise = null;
-  transcript.length = 0; // Clear transcript on leave
+  transcript.length = 0;
 }
