@@ -102,10 +102,12 @@ async def start_agent(
             "llm": _llm_config(style),
             "asr": {"language": "en-US"},
             "tts": {
-                "vendor": "elevenlabs",
+                "vendor": "microsoft",
                 "params": {
-                    "key": settings.ELEVENLABS_API_KEY,
-                    "voice_id": settings.ELEVENLABS_VOICE_ID,
+                    "key": settings.AZURE_SPEECH_KEY,
+                    "region": settings.AZURE_SPEECH_REGION,
+                    "endpoint": settings.AZURE_SPEECH_ENDPOINT,
+                    "voice_name": "en-US-AriaNeural",
                 },
             },
         },

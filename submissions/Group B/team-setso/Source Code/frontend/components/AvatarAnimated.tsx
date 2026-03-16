@@ -18,6 +18,7 @@ export function AvatarAnimated() {
         src={src}
         alt="YAMI AI Avatar"
         fill
+        sizes="100vw"
         className="object-cover object-top transition-opacity duration-150"
         priority
       />

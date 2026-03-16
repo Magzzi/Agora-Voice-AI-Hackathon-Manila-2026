@@ -40,30 +40,7 @@ export default function Home() {
       {/* Hidden file input managed by the hook */}
       {FileInput}
 
-      <aside className="flex w-[72px] flex-col items-center gap-5 border-r border-zinc-200 bg-white py-5">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-600 text-sm font-semibold text-white shadow-sm">
-          Y
-        </div>
-        <nav className="flex w-full flex-1 flex-col items-center gap-3 px-3">
-          <SidebarButton active ariaLabel="Home">
-            <IconHome />
-          </SidebarButton>
-          <SidebarButton ariaLabel="Document">
-            <IconDocument />
-          </SidebarButton>
-          <SidebarButton ariaLabel="History">
-            <IconHistory />
-          </SidebarButton>
-          <SidebarButton ariaLabel="Settings">
-            <IconSettings />
-          </SidebarButton>
-        </nav>
-        <div className="px-3">
-          <SidebarButton ariaLabel="Sign out">
-            <IconPower />
-          </SidebarButton>
-        </div>
-      </aside>
+      
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 items-center justify-between border-b border-zinc-200 bg-white px-5">
