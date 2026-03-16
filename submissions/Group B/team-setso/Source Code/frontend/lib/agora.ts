@@ -2,7 +2,7 @@
  * Thin wrapper around agora-rtc-sdk-ng for use in the YAMI frontend.
  * Keeps engine creation and mic publishing isolated from UI components.
  */
-import AgoraRTC, {
+import type {
   IAgoraRTCClient,
   IMicrophoneAudioTrack,
 } from "agora-rtc-sdk-ng";
@@ -11,8 +11,12 @@ let client: IAgoraRTCClient | null = null;
 let micTrack: IMicrophoneAudioTrack | null = null;
 
 /** Create (or return existing) Agora RTC client in live-broadcasting mode. */
-export function getClient(): IAgoraRTCClient {
+export async function getClient(): Promise<IAgoraRTCClient> {
+  if (typeof window === "undefined") {
+    throw new Error("Agora RTC cannot be instantiated on the server.");
+  }
   if (!client) {
+    const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
     client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
   }
   return client;
@@ -25,9 +29,10 @@ export async function joinChannel(
   token: string,
   uid: number
 ): Promise<number> {
-  const c = getClient();
+  const c = await getClient();
   const result = await c.join(appId, channel, token, uid);
 
+  const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
   // Create and publish the microphone audio track
   micTrack = await AgoraRTC.createMicrophoneAudioTrack({
     encoderConfig: "high_quality",
@@ -46,7 +51,7 @@ export function setMicMuted(muted: boolean): void {
 
 /** Leave the channel and clean up tracks/client. */
 export async function leaveChannel(): Promise<void> {
-  const c = getClient();
+  const c = await getClient();
 
   if (micTrack) {
     micTrack.stop();
