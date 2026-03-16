@@ -10,6 +10,10 @@ package-lock.json
 # Yarn Lock
 yarn.lock
 
+
+.env
+.env.example
+
 .DS_Store
 
 update-templates.js
